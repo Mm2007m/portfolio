@@ -1,93 +1,62 @@
 const root = document.documentElement;
 
-// ---------- 1) اللغة (English / عربي) ----------
-// كل عنصر عليه data-ar: نحفظ نصه الإنجليزي الأصلي أولاً، وبعدها نبدّل بين النصين.
-const texts = document.querySelectorAll('[data-ar]');
-texts.forEach(el => el.dataset.en = el.innerHTML);
-
-const typingWords = {
-  en: ['things with AI', 'secure systems', 'desktop apps in C#'],
-  ar: ['حلولاً بالذكاء الاصطناعي', 'أنظمة آمنة', 'تطبيقات سطح مكتب بلغة C#']
+// localStorage can be blocked (private mode), so every access is wrapped
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} }
 };
-let lang = localStorage.getItem('lang') || 'en';
 
-function setLang(newLang) {
-  lang = newLang;
-  root.lang = lang;
-  root.dir = lang === 'ar' ? 'rtl' : 'ltr';
-  texts.forEach(el => el.innerHTML = el.dataset[lang]);
-  langBtn.textContent = lang === 'ar' ? 'English' : 'عربي';
-  updateThemeBtn();
-  startTyping();
-  localStorage.setItem('lang', lang);
-}
-
-const langBtn = document.getElementById('langBtn');
-langBtn.addEventListener('click', () => setLang(lang === 'en' ? 'ar' : 'en'));
-
-// ---------- 2) الوضع الداكن / الفاتح ----------
+// ---------- Theme (light / dark) ----------
 const themeBtn = document.getElementById('themeBtn');
-
-function updateThemeBtn() {
-  const dark = root.dataset.theme === 'dark';
-  themeBtn.textContent = lang === 'ar' ? (dark ? 'فاتح' : 'داكن') : (dark ? 'Light' : 'Dark');
-}
-function setTheme(theme) {
+function applyTheme(theme) {
   root.dataset.theme = theme;
-  updateThemeBtn();
-  localStorage.setItem('theme', theme);
+  themeBtn.textContent = theme === 'dark' ? 'Light' : 'Dark';
 }
-themeBtn.addEventListener('click', () => setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark'));
+applyTheme(root.dataset.theme || 'light');   // the <head> script already picked it
+themeBtn.addEventListener('click', () => {
+  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  store.set('theme', next);
+});
 
-// ---------- 3) قائمة الموبايل ----------
+// ---------- Mobile menu ----------
 const menu = document.getElementById('menu');
-document.getElementById('menuBtn').addEventListener('click', () => menu.classList.toggle('open'));
-menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => menu.classList.remove('open')));
-
-// ---------- 4) الكتابة المتحركة ----------
-const typed = document.getElementById('typed');
-let wordIndex = 0, charIndex = 0, deleting = false, timer;
-
-function type() {
-  const word = typingWords[lang][wordIndex];
-  typed.textContent = word.slice(0, charIndex);
-
-  if (!deleting && charIndex === word.length) {   // خلصت الكلمة: استنى شوية ثم امسح
-    deleting = true;
-    timer = setTimeout(type, 1400);
-    return;
-  }
-  if (deleting && charIndex === 0) {              // اتمسحت: روح للكلمة اللي بعدها
-    deleting = false;
-    wordIndex = (wordIndex + 1) % typingWords[lang].length;
-  }
-  charIndex += deleting ? -1 : 1;
-  timer = setTimeout(type, deleting ? 40 : 80);
+const menuBtn = document.getElementById('menuBtn');
+function toggleMenu(open) {
+  menu.classList.toggle('open', open);
+  menuBtn.setAttribute('aria-expanded', open);
 }
-function startTyping() {
-  clearTimeout(timer);
-  wordIndex = 0; charIndex = 0; deleting = false;
-  type();
-}
+menuBtn.addEventListener('click', () => toggleMenu(!menu.classList.contains('open')));
+menu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => toggleMenu(false)));
 
-// ---------- 5) الفورم (يفتح برنامج الإيميل) ----------
-// المتصفح نفسه بيتأكد إن الحقول مليانة وإن الإيميل صحيح بسبب required و type="email"
+// ---------- Contact form (opens the visitor's email app) ----------
 document.getElementById('form').addEventListener('submit', e => {
   e.preventDefault();
   const name = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
   const message = document.getElementById('message').value.trim();
-
   const subject = encodeURIComponent('Portfolio message from ' + name);
   const body = encodeURIComponent(message + '\n\n' + name + ' (' + email + ')');
   window.location.href = `mailto:my940771@gmail.com?subject=${subject}&body=${body}`;
   e.target.reset();
 });
 
-// ---------- 6) السنة في الفوتر ----------
+// ---------- Footer year ----------
 document.getElementById('year').textContent = new Date().getFullYear();
 
-// ---------- تشغيل أولي ----------
-const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
-setTheme(localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light'));
-setLang(lang);
+// ---------- Sections fade in while scrolling ----------
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('show');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.section').forEach(section => {
+    section.classList.add('reveal');
+    observer.observe(section);
+  });
+}
